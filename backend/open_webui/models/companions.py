@@ -2,7 +2,7 @@
 
 from open_webui.internal.db import Base
 from pydantic import BaseModel, Field
-from sqlalchemy import JSON, BigInteger, Boolean, Column, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, Column, Integer, String, Text, delete, select
 
 
 class Companion(Base):
@@ -76,3 +76,12 @@ def role_data(role):
     return {
         key: getattr(role, key) for key in ('id', 'name', 'persona', 'model_id', 'state', 'target_chat_id', 'version')
     }
+
+
+async def delete_companions_for_user(db, user_id):
+    """Join account deletion's transaction; never commit other cleanup early."""
+    role_ids = select(Companion.id).where(Companion.user_id == user_id)
+    await db.execute(delete(CompanionTurn).where(CompanionTurn.role_id.in_(role_ids)))
+    await db.execute(delete(CompanionChat).where(CompanionChat.user_id == user_id))
+    await db.execute(delete(CompanionPreference).where(CompanionPreference.user_id == user_id))
+    await db.execute(delete(Companion).where(Companion.user_id == user_id))

@@ -860,6 +860,9 @@ class UsersTable:
             from open_webui.models.notifications import delete_user_notifications
 
             await delete_user_notifications(id, db=session)
+            from open_webui.models.companions import delete_companions_for_user
+
+            await delete_companions_for_user(session, id)
             await session.execute(delete(User).where(User.id == id))
             await session.commit()
             return True

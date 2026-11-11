@@ -387,3 +387,40 @@ async def test_background_model_adapter_loads_models_and_drops_foreground_metada
     request = Request({'type': 'http', 'app': h.app, 'state': {'metadata': {'tools': 'foreground'}, 'direct': True}})
     result = await h.service.model_text(request, SimpleNamespace(id='alice'), 'test', [], 'companion_review')
     assert result == 'ok' and calls == ['load', 'generate']
+
+
+@pytest.mark.asyncio
+async def test_account_cleanup_is_transactional_and_owner_scoped(harness):
+    from sqlalchemy import select
+
+    h = harness
+    rid = await role(h)
+    await bind(h, rid)
+    await h.client.put('/companions/preferences', json={'enabled': True, 'role_id': rid})
+    response = await h.client.post(
+        '/companions/', headers={'x-test-user': 'bob'}, json={'name': '另一个用户', 'persona': '保持独立'}
+    )
+    bob_role = response.json()['id']
+    async with h.db() as db:
+        db.add(h.models.CompanionTurn(id='alice-turn', role_id=rid, created_at=1))
+        db.add(h.models.CompanionTurn(id='bob-turn', role_id=bob_role, created_at=1))
+        await db.commit()
+    async with h.db() as db:
+        await h.models.delete_companions_for_user(db, 'alice')
+        await db.rollback()
+    async with h.db() as db:
+        assert await db.get(h.models.Companion, rid)
+        assert await db.get(h.models.CompanionTurn, 'alice-turn')
+        await h.models.delete_companions_for_user(db, 'alice')
+        await db.commit()
+    async with h.db() as db:
+        assert await db.get(h.models.Companion, rid) is None
+        assert await db.get(h.models.CompanionTurn, 'alice-turn') is None
+        assert await db.get(h.models.CompanionPreference, 'alice') is None
+        assert (
+            not (await db.execute(select(h.models.CompanionChat).where(h.models.CompanionChat.user_id == 'alice')))
+            .scalars()
+            .all()
+        )
+        assert await db.get(h.models.Companion, bob_role)
+        assert await db.get(h.models.CompanionTurn, 'bob-turn')
