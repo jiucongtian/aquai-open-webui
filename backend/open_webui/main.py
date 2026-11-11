@@ -158,6 +158,7 @@ from open_webui.routers import (
     channels,
     chats,
     comments,
+    companions,
     configs,
     evaluations,
     files,
@@ -449,6 +450,9 @@ async def lifespan(app: FastAPI):
     from open_webui.utils.automations import scheduler_worker_loop
 
     app.state.scheduler_worker_loop = asyncio.create_task(scheduler_worker_loop(app))
+    from open_webui.utils.companions import companion_worker_loop
+
+    app.state.companion_worker_loop = asyncio.create_task(companion_worker_loop(app))
 
     if await Config.get('models.base_models_cache'):
         try:
@@ -542,6 +546,7 @@ async def lifespan(app: FastAPI):
     app.state.periodic_usage_pool_cleanup.cancel()
     app.state.periodic_session_pool_cleanup.cancel()
     app.state.scheduler_worker_loop.cancel()
+    app.state.companion_worker_loop.cancel()
 
     await publish_event(request, EVENTS.SYSTEM_SHUTDOWN_COMPLETED, source='system')
 
@@ -848,6 +853,7 @@ app.include_router(tools.router, prefix='/api/v1/tools', tags=['tools'])
 app.include_router(skills.router, prefix='/api/v1/skills', tags=['skills'])
 
 app.include_router(memories.router, prefix='/api/v1/memories', tags=['memories'])
+app.include_router(companions.router, prefix='/api/v1/companions', tags=['companions'])
 app.include_router(folders.router, prefix='/api/v1/folders', tags=['folders'])
 app.include_router(groups.router, prefix='/api/v1/groups', tags=['groups'])
 app.include_router(files.router, prefix='/api/v1/files', tags=['files'])

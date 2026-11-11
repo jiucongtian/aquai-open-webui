@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CompanionPanel from './CompanionPanel.svelte';
+	let companionSelection = { enabled: false, role_id: null as string | null };
 	import type { TerminalContext } from '$lib/types';
 	import {
 		estimateTokens,
@@ -4300,7 +4302,7 @@
 			features = { ...features, memory: true };
 		}
 
-		return features;
+		return { ...features, companion: companionSelection };
 	};
 
 	const getStopTokens = () => {
@@ -5315,6 +5317,13 @@
 					</div>
 				{:else}
 					<FilesOverlay show={dragged} />
+					{#if !isShared}
+						<CompanionPanel
+							chatId={$chatId}
+							temporary={$temporaryChatEnabled}
+							bind:selection={companionSelection}
+						/>
+					{/if}
 					{#if embedded}
 						<div
 							class="h-8 shrink-0 flex items-center justify-between gap-2 border-b border-gray-50/80 px-3 pb-1 text-gray-700 dark:border-gray-850/40 dark:text-gray-200"

@@ -2382,6 +2382,9 @@ async def process_chat_payload(request, form_data, user, metadata, model):
             raise Exception(f'{e}')
 
     features = form_data.pop('features', None) or {}
+    from open_webui.utils.companions import prepare_companion
+
+    await prepare_companion(request, form_data, user, metadata, features)
     extra_params['__features__'] = features
     if features:
         if 'voice' in features and features['voice']:
@@ -3755,15 +3758,20 @@ async def background_tasks_handler(ctx):
                             pass
 
         if messages:
-            await review_memory_after_turn(
-                request=request,
-                user=user,
-                model=ctx.get('model'),
-                metadata=metadata,
-                form_data=form_data,
-                assistant_message=ctx.get('assistant_message') or {},
-                messages=messages,
-            )
+            if metadata.get('companion'):
+                from open_webui.utils.companions import review_companion_turn
+
+                await review_companion_turn(ctx, messages)
+            elif not metadata.get('companion_temporary') and not metadata.get('companion_history'):
+                await review_memory_after_turn(
+                    request=request,
+                    user=user,
+                    model=ctx.get('model'),
+                    metadata=metadata,
+                    form_data=form_data,
+                    assistant_message=ctx.get('assistant_message') or {},
+                    messages=messages,
+                )
 
 
 async def outlet_filter_handler(ctx):
