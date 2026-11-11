@@ -11,7 +11,28 @@
 		enabled: false,
 		role_id: null
 	};
-	let roles: any[] = [];
+	type CompanionRole = {
+		id: string;
+		name: string;
+		persona: string;
+		model_id: string;
+		target_chat_id: string | null;
+		state: {
+			mood?: number;
+			mood_at?: number;
+			profile?: string;
+			experience?: string[];
+			memories?: { id: string; text: string; invalid?: boolean }[];
+			proactive?: {
+				interval_minutes?: number;
+				daily_max?: number;
+				awake_from?: number;
+				awake_to?: number;
+				timezone?: string;
+			};
+		};
+	};
+	let roles: CompanionRole[] = [];
 	let show = false;
 	let ready = false;
 	let busy = false;
@@ -100,7 +121,7 @@
 		});
 	}
 
-	function edit(role: any = null) {
+	function edit(role: CompanionRole | null = null) {
 		editing = role?.id || '';
 		name = role?.name || '';
 		persona = role?.persona || '';
@@ -137,8 +158,10 @@
 	}
 
 	async function proactive(enable: boolean) {
+		const role = selected;
+		if (!role) return;
 		await action(async () => {
-			await api(`/${selected.id}/proactive`, 'PUT', {
+			await api(`/${role.id}/proactive`, 'PUT', {
 				chat_id: enable ? chatId : null,
 				interval_minutes: interval,
 				daily_max: dailyMax,
@@ -152,8 +175,10 @@
 	}
 
 	async function confirmed() {
+		const role = selected;
+		if (!role) return;
 		await action(async () => {
-			await api(`/${selected.id}${confirmAction === 'reset' ? '/state' : ''}`, 'DELETE');
+			await api(`/${role.id}${confirmAction === 'reset' ? '/state' : ''}`, 'DELETE');
 			if (confirmAction === 'delete') selection = { enabled: false, role_id: null };
 			confirmAction = '';
 			roles = await api('/');
