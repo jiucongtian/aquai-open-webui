@@ -1,0 +1,13 @@
+# Full application release using the already verified upstream runtime.
+# Prepare build/ from this exact source revision with build-release.mjs first.
+ARG BASE_IMAGE=open-webui-base:c38885a
+FROM ${BASE_IMAGE}
+ARG RELEASE_SHA
+LABEL org.opencontainers.image.revision=${RELEASE_SHA}
+LABEL org.opencontainers.image.title="小岁岁"
+ENV WEBUI_BUILD_HASH=${RELEASE_SHA}
+ENV WEBUI_NAME="小岁岁"
+COPY backend/ /app/backend/
+COPY package.json /app/package.json
+COPY build/ /app/build/
+RUN python -c "import json,os; m=json.load(open('/app/build/release.json')); assert m['revision']==os.environ['WEBUI_BUILD_HASH'], 'Frontend/backend revision mismatch'"
