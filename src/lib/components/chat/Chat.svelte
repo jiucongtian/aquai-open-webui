@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CompanionPanel from './CompanionPanel.svelte';
+	import { liveCompanionReplies } from './Messages/companionPresentation';
 	let companionSelection = { enabled: false, role_id: null as string | null };
 	import type { TerminalContext } from '$lib/types';
 	import {
@@ -1568,6 +1569,8 @@
 				if ($chatId !== event.chat_id) return;
 			}
 			if (type === 'chat:reload') {
+				const companionId = event.data?.data?.companion_message_id;
+				if (companionId) liveCompanionReplies.add(`${$chatId}:${companionId}`);
 				await loadChat();
 				return;
 			}
@@ -3538,6 +3541,9 @@
 
 	const chatCompletionEventHandler = async (data, message, chatId, shared = false) => {
 		const { id, done, choices, content, output, sources, selected_model_id, error, usage } = data;
+		if (data.companion_display?.version === 1) {
+			message.meta = { ...message.meta, companion_display: data.companion_display };
+		}
 
 		if (error) {
 			if (shared) message.error = error;
@@ -4713,6 +4719,9 @@
 			if (responseMessage?.parentId && history.messages[responseMessage.parentId]) {
 				for (const messageId of history.messages[responseMessage.parentId].childrenIds) {
 					history.messages[messageId].done = true;
+					if (history.messages[messageId].meta?.companion_display) {
+						history.messages[messageId].bridgeCancelled = true;
+					}
 					clearContextCompaction(messageId);
 				}
 			}

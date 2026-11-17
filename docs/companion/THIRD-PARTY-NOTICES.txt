@@ -32,3 +32,8 @@ MIT License (the permission and warranty terms above also apply).
 This adaptation does not bundle the QQ gateway, DSH runtime, avatar assets,
 or the complete upstream purpose engine. Open WebUI's existing license and
 branding requirements remain unchanged.
+
+Bubble timing and short-message presentation also reference the Aurabot fork:
+https://github.com/jiucongtian/aqua-dsh-fish
+src/chat/reply.js (splitLines and bubbleDelay), src/chat/hub.js (typing),
+and persona short-message rules. The Aurabot MIT attribution above applies.

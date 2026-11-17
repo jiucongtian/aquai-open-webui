@@ -63,6 +63,7 @@
 	import Citations from './Citations.svelte';
 	import CodeExecutions from './CodeExecutions.svelte';
 	import ContentRenderer from './ContentRenderer.svelte';
+	import CompanionReply from './CompanionReply.svelte';
 	import ContextCompactionLabel from './ContextCompactionLabel.svelte';
 	import { KokoroWorker } from '$lib/workers/KokoroWorker';
 	import FileItem from '$lib/components/common/FileItem.svelte';
@@ -77,6 +78,8 @@
 	import { getOutputText, replaceOutputMessageText, type OutputItem } from './structuredOutput';
 
 	interface MessageType {
+		meta?: { companion_display?: { version: number; name: string; mood: number } };
+		bridgeCancelled?: boolean;
 		user_id?: string;
 		id: string;
 		model: string;
@@ -208,6 +211,11 @@
 	$: visibleResponseContent =
 		getOutputText(message.output) || removeAllDetails(message.content ?? '');
 	$: hasResponseContent = Boolean((message.content ?? '').trim() || message.output?.length);
+	$: companionDisplay = message.meta?.companion_display;
+	$: companionBubbles =
+		companionDisplay?.version === 1 &&
+		!(message.output ?? []).some((item) => !['message', 'reasoning'].includes(item.type ?? '')) &&
+		!/```|~~~|^\s*(?:#{1,6}\s|[-*+]\s|\d+[.)、]\s|>\s|\|)|<\/?[a-z]/im.test(visibleResponseContent);
 
 	let edit = false;
 	let editedContent = '';
@@ -869,7 +877,18 @@
 							class="w-full flex flex-col relative {edit ? 'hidden' : ''}"
 							id="response-content-container"
 						>
-							{#if hasResponseContent && message.error !== true}
+							{#if companionBubbles && message.error !== true}
+								{#key message.id}
+									<CompanionReply
+										content={visibleResponseContent}
+										done={message.done}
+										cancelled={!!message.error || !!message.bridgeCancelled}
+										replyKey={`${chatId}:${message.id}`}
+										name={companionDisplay?.name}
+										mood={companionDisplay?.mood}
+									/>
+								{/key}
+							{:else if hasResponseContent && message.error !== true}
 								<!-- always show message contents even if there's an error -->
 								<!-- unless message.error === true which is legacy error handling, where the error message is stored in message.content -->
 								<ContentRenderer
@@ -935,7 +954,7 @@
 								<ContextCompactionLabel status={compactionStatus} {compactPreview} />
 							{/if}
 
-							{#if !compactionStatus && !message.done && !message.error && (hasResponseContent || !hasVisibleStatus)}
+							{#if !companionBubbles && !compactionStatus && !message.done && !message.error && (hasResponseContent || !hasVisibleStatus)}
 								<div class="text-[0.9375rem] leading-relaxed">
 									<span
 										class="inline-block w-[0.125rem] h-3.5 bg-gray-400 dark:bg-gray-500 ml-0.5 animate-cursor-pulse align-text-bottom"

@@ -14,6 +14,7 @@ from open_webui.models.companions import ChatForm, Companion, CompanionChat, Com
 from open_webui.utils.companion_engine import (
     apply_review,
     context_text,
+    mood_value,
     parse_review,
     proactive_reason,
 )
@@ -22,6 +23,29 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
 log = logging.getLogger(__name__)
+
+
+def companion_display(role):
+    return {'version': 1, 'name': role['name'], 'mood': mood_value(role['state'], int(time.time()))}
+
+
+async def announce_companion_display(metadata, role):
+    """Mark only server-authorized companion turns, including temporary chats."""
+    if not metadata.get('message_id'):
+        return
+
+    from open_webui.models.chats import Chats
+    from open_webui.socket.main import get_event_emitter
+    from open_webui.utils.chat_id import is_saved_chat_id
+
+    display = companion_display(role)
+    if is_saved_chat_id(metadata.get('chat_id')):
+        await Chats.upsert_message_to_chat_by_id_and_message_id(
+            metadata['chat_id'], metadata['message_id'], {'meta': {'companion_display': display}}, touch=False
+        )
+    emitter = await get_event_emitter(metadata, update_db=False)
+    if emitter:
+        await emitter({'type': 'chat:completion', 'data': {'companion_display': display}})
 
 
 async def resolve_companion(user_id, chat_id):
@@ -71,6 +95,7 @@ async def prepare_companion(request, form_data, user, metadata, features):
                         form_data['messages'],
                         append=True,
                     )
+                    await announce_companion_display(metadata, {**role_data(role), 'state': {}})
         return
     chat = await Chats.get_chat_by_id_and_user_id(chat_id, user.id)
     if not chat:
@@ -104,6 +129,7 @@ async def prepare_companion(request, form_data, user, metadata, features):
     role = await resolve_companion(user.id, chat_id)
     if not role:
         return
+    await announce_companion_display(metadata, role)
     features['memory'] = False  # Also disables native general-purpose memory tools.
     metadata['companion'] = {k: role[k] for k in ('id', 'revision', 'version')}
     query = '\n'.join(str(m.get('content', '')) for m in form_data['messages'][-4:] if m.get('role') == 'user')
@@ -431,7 +457,7 @@ async def deliver_companion(app, role_id, lease):  # noqa: C901 - generation and
                 'parentId': role['current_id'],
                 'childrenIds': [],
                 'timestamp': now,
-                'meta': {'companion_proactive': role_id},
+                'meta': {'companion_proactive': role_id, 'companion_display': companion_display(role)},
             }
             saved = Chats.upsert_message_to_history(history, message_id, message)
             await ChatMessages.upsert_message(message_id, target, user_id, saved, db=db)
@@ -446,7 +472,9 @@ async def deliver_companion(app, role_id, lease):  # noqa: C901 - generation and
         await db.commit()
     if not silent:
         await sio.emit(
-            'events', {'chat_id': target, 'data': {'type': 'chat:reload', 'data': {}}}, room=f'user:{user_id}'
+            'events',
+            {'chat_id': target, 'data': {'type': 'chat:reload', 'data': {'companion_message_id': message_id}}},
+            room=f'user:{user_id}',
         )
 
 

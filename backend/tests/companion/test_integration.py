@@ -424,3 +424,50 @@ async def test_account_cleanup_is_transactional_and_owner_scoped(harness):
         )
         assert await db.get(h.models.Companion, bob_role)
         assert await db.get(h.models.CompanionTurn, 'bob-turn')
+
+
+@pytest.mark.asyncio
+async def test_display_marker_requires_enabled_server_binding(harness, monkeypatch):
+    h = harness
+    rid = await role(h)
+    await bind(h, rid)
+    marked = []
+
+    async def announce(metadata, selected):
+        marked.append(h.service.companion_display(selected))
+
+    monkeypatch.setattr(h.service, 'announce_companion_display', announce)
+    payload = {'model': 'test', 'messages': [{'role': 'user', 'content': '你好'}]}
+    await h.service.prepare_companion(None, payload, SimpleNamespace(id='alice'), {'chat_id': 'a'}, {})
+    assert marked[0]['version'] == 1
+    assert marked[0]['name'] == '朋友'
+    assert '每行会显示为独立气泡' in payload['messages'][0]['content']
+    await bind(h, rid, enabled=False)
+    marked.clear()
+    payload = {'model': 'test', 'messages': [{'role': 'user', 'content': '你好'}]}
+    await h.service.prepare_companion(None, payload, SimpleNamespace(id='alice'), {'chat_id': 'a'}, {})
+    assert marked == []
+    assert len(payload['messages']) == 1
+
+
+@pytest.mark.asyncio
+async def test_display_marker_saved_and_announced_but_temporary_not_saved(harness, monkeypatch):
+    import sys
+    from unittest.mock import AsyncMock
+
+    h = harness
+    save = AsyncMock()
+    emit = AsyncMock()
+    monkeypatch.setattr(
+        sys.modules['open_webui.models.chats'].Chats, 'upsert_message_to_chat_by_id_and_message_id', save, raising=False
+    )
+    monkeypatch.setattr(
+        sys.modules['open_webui.socket.main'], 'get_event_emitter', AsyncMock(return_value=emit), raising=False
+    )
+    selected = {'name': '小果粒', 'state': {}}
+    await h.service.announce_companion_display({'chat_id': 'a', 'message_id': 'answer'}, selected)
+    assert save.call_args.args[2]['meta']['companion_display']['name'] == '小果粒'
+    assert emit.call_args.args[0]['data']['companion_display']['version'] == 1
+    save.reset_mock()
+    await h.service.announce_companion_display({'chat_id': 'temporary:session', 'message_id': 'answer'}, selected)
+    save.assert_not_called()
