@@ -75,6 +75,7 @@
 	import FullHeightIframe from '$lib/components/common/FullHeightIframe.svelte';
 	import MCPApp from '$lib/components/chat/Messages/MCPApp.svelte';
 	import OutputEditView from './OutputEditView.svelte';
+	import { companionPresentation } from './companionPresentation';
 	import { getOutputText, replaceOutputMessageText, type OutputItem } from './structuredOutput';
 
 	interface MessageType {
@@ -212,10 +213,12 @@
 		getOutputText(message.output) || removeAllDetails(message.content ?? '');
 	$: hasResponseContent = Boolean((message.content ?? '').trim() || message.output?.length);
 	$: companionDisplay = message.meta?.companion_display;
-	$: companionBubbles =
-		companionDisplay?.version === 1 &&
-		!(message.output ?? []).some((item) => !['message', 'reasoning'].includes(item.type ?? '')) &&
-		!/```|~~~|^\s*(?:#{1,6}\s|[-*+]\s|\d+[.)、]\s|>\s|\|)|<\/?[a-z]/im.test(visibleResponseContent);
+	$: companionView = companionPresentation(
+		companionDisplay,
+		visibleResponseContent,
+		message.output
+	);
+	$: companionBubbles = companionView.enabled;
 
 	let edit = false;
 	let editedContent = '';
@@ -878,6 +881,19 @@
 							id="response-content-container"
 						>
 							{#if companionBubbles && message.error !== true}
+								{#if companionView.details.length}
+									<ContentRenderer
+										id={`${chatId}-${message.id}-details`}
+										{chatId}
+										messageId={message.id}
+										content=""
+										output={companionView.details}
+										done={message?.done ?? false}
+										{model}
+										floatingButtons={false}
+										{onToolCallResolved}
+									/>
+								{/if}
 								{#key message.id}
 									<CompanionReply
 										content={visibleResponseContent}

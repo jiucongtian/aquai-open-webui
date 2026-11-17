@@ -1,3 +1,25 @@
+import type { OutputItem } from './structuredOutput';
+
+/** Tools/reasoning keep their own renderer; only conversational text becomes bubbles. */
+export function companionPresentation(
+	display: { version?: number } | undefined,
+	text: string,
+	output: OutputItem[] = []
+) {
+	const richText = /```|~~~|^\s*(?:#{1,6}\s|[-*+]\s|\d+[.)、]\s|>\s|\|)|<\/?[a-z]/im.test(text);
+	const nonTextMessage = (output ?? []).some(
+		(item) =>
+			item.type === 'message' &&
+			(!!item.files ||
+				!!item.embeds ||
+				(item.content ?? []).some((part) => !['text', 'output_text'].includes(part.type ?? '')))
+	);
+	return {
+		enabled: display?.version === 1 && !richText && !nonTextMessage,
+		details: (output ?? []).filter((item) => item.type !== 'message')
+	};
+}
+
 /** Presentation only: never split a conversation turn or modify its stored answer. */
 export const liveCompanionReplies = new Set<string>();
 export const MAX_COMPANION_BUBBLES = 5;

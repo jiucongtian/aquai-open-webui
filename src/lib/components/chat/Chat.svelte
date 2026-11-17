@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CompanionPanel from './CompanionPanel.svelte';
+	import { persistCompanionSelection } from './companionSelection';
 	import { liveCompanionReplies } from './Messages/companionPresentation';
 	let companionSelection = { enabled: false, role_id: null as string | null };
 	import type { TerminalContext } from '$lib/types';
@@ -5395,6 +5396,7 @@
 										toast.error($i18n.t('No conversation to save'));
 										return;
 									}
+									const savedCompanionSelection = { ...companionSelection };
 									const messages = createMessagesList(history, history.currentId);
 									const title =
 										messages.find((m) => m.role === 'user')?.content ?? $i18n.t('New Chat');
@@ -5415,6 +5417,13 @@
 									);
 
 									if (savedChat) {
+										// Persist consent before changing the id: the panel loads the
+										// authoritative binding as soon as navigation begins.
+										await persistCompanionSelection(
+											localStorage.token,
+											savedChat.id,
+											savedCompanionSelection
+										);
 										temporaryChatEnabled.set(false);
 										chatId.set(savedChat.id);
 										await refreshChatList(localStorage.token);

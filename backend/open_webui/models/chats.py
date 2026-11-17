@@ -1137,12 +1137,12 @@ class ChatTable:
 
         if message_id in messages:
             # Voice updates must not replace approval-resume metadata, and approval
-            # pauses must retain speech and response timing already attached to this turn.
+            # pauses must retain speech, timing and companion presentation for this turn.
             existing_meta = messages[message_id].get('meta')
             existing_meta = existing_meta if isinstance(existing_meta, dict) else {}
             incoming_meta = message.get('meta')
             if isinstance(incoming_meta, dict):
-                if set(incoming_meta) <= {'voice', 'task_id', 'response_started_at', 'response_ended_at'}:
+                if set(incoming_meta) <= {'voice', 'task_id', 'response_started_at', 'response_ended_at', 'companion_display', 'companion_proactive'}:
                     message = {**message, 'meta': {**existing_meta, **incoming_meta}}
                 else:
                     message = {
@@ -1150,7 +1150,7 @@ class ChatTable:
                         'meta': {
                             **{
                                 key: existing_meta[key]
-                                for key in ('voice', 'task_id', 'response_started_at', 'response_ended_at')
+                                for key in ('voice', 'task_id', 'response_started_at', 'response_ended_at', 'companion_display', 'companion_proactive')
                                 if key in existing_meta
                             },
                             **incoming_meta,

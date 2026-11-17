@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	companionPresentation,
 	companionDelay,
 	revealCompanionBubbles,
 	splitCompanionBubbles
@@ -9,6 +10,29 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 describe('companion presentation', () => {
+	it('keeps tool failures and reasoning visible without disabling reply bubbles', () => {
+		const tool = { type: 'function_call', name: 'add_memory', status: 'failed' };
+		const reasoning = { type: 'reasoning', summary: '思考' };
+		const message = {
+			type: 'message',
+			content: [{ type: 'output_text', text: '刚试了\n还是失败' }]
+		};
+		const output = [reasoning, tool, message];
+		expect(companionPresentation({ version: 1 }, '刚试了\n还是失败', output)).toEqual({
+			enabled: true,
+			details: [reasoning, tool]
+		});
+		expect(output).toEqual([reasoning, tool, message]);
+		expect(companionPresentation(undefined, '普通回答', output).enabled).toBe(false);
+	});
+	it('retains the original renderer for structured answers and image messages', () => {
+		expect(companionPresentation({ version: 1 }, '```py\nprint(1)\n```').enabled).toBe(false);
+		expect(
+			companionPresentation({ version: 1 }, '图片', [
+				{ type: 'message', content: [{ type: 'output_image', image_url: 'image' }] }
+			]).enabled
+		).toBe(false);
+	});
 	it('splits mobile-style lines and explicit separators without empty bubbles', () => {
 		expect(splitCompanionBubbles('好呀\n\n我来啦|||今天怎么样')).toEqual([
 			'好呀',
