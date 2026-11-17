@@ -83,7 +83,9 @@
 				// A new chat can appear before its first completion initializes the
 				// binding. Keep the selection already submitted during that transition.
 				if (current.initialized || previousId === null || previousId) selection = current;
-			} else {
+			} else if (!(previousId === '' && /^(local:|temporary:)/.test(id))) {
+				// Assigning the first temporary session id is still the same draft.
+				// Do not replace the role and switch the user just chose with defaults.
 				selection = defaults;
 			}
 			if (!roles.some((r) => r.id === selection.role_id))
