@@ -20,9 +20,17 @@ describe('companion presentation', () => {
 		expect(splitCompanionBubbles('好呀！我来啦。😊')).toEqual(['好呀！我来啦。😊']);
 		expect(splitCompanionBubbles('好呀')).toEqual(['好呀']);
 	});
-	it.each([1, 2, 4, 8])('keeps all %i semantic parts without padding or merging', (count) => {
+	it.each([1, 2, 3, 4, 5])('keeps all %i semantic parts without padding or merging', (count) => {
 		const parts = Array.from({ length: count }, (_, index) => `想法${index}。补充说明。`);
 		expect(splitCompanionBubbles(parts.join('\n'))).toEqual(parts);
+	});
+	it('caps display at five bubbles and preserves every overflow paragraph in the last bubble', () => {
+		const parts = Array.from({ length: 8 }, (_, index) => `想法${index}。补充说明。`);
+		const bubbles = splitCompanionBubbles(parts.join('\n'));
+		expect(bubbles).toHaveLength(5);
+		expect(bubbles.slice(0, 4)).toEqual(parts.slice(0, 4));
+		expect(bubbles[4]).toBe(parts.slice(4).join('\n'));
+		expect(bubbles.join('\n')).toBe(parts.join('\n'));
 	});
 	it('preserves code, tables and numbered instructions', () => {
 		for (const content of [
