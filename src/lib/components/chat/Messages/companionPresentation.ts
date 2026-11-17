@@ -8,16 +8,12 @@ export function splitCompanionBubbles(text: string): string[] {
 	if (/```|~~~|^\s*(?:#{1,6}\s|[-*+]\s|\d+[.)、]\s|>\s|\|)|<\/?[a-z]/im.test(value)) {
 		return [value];
 	}
-	let parts = value
+	// The model chooses semantic boundaries. Do not force a sentence count,
+	// split punctuation, or merge unrelated thoughts to meet a bubble quota.
+	return value
 		.split(/\|\|\||\n+/)
 		.map((part) => part.trim())
 		.filter(Boolean);
-	if (parts.length === 1 && value.length <= 240) {
-		parts = value.match(/[^。！？!?]+[。！？!?]+[”」』]?|[^。！？!?]+$/gu) ?? [value];
-		parts = parts.map((part) => part.trim()).filter(Boolean);
-	}
-	if (parts.length > 5) parts = [...parts.slice(0, 4), parts.slice(4).join('\n')];
-	return parts;
 }
 
 export function companionDelay(text: string, mood = 60, random = Math.random): number {

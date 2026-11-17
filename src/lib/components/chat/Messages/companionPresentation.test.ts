@@ -15,16 +15,14 @@ describe('companion presentation', () => {
 			'我来啦',
 			'今天怎么样'
 		]);
-		expect(splitCompanionBubbles('好呀！我来啦。')).toEqual(['好呀！', '我来啦。']);
 	});
-	it('caps bubbles without losing the tail', () => {
-		expect(splitCompanionBubbles('一\n二\n三\n四\n五\n六')).toEqual([
-			'一',
-			'二',
-			'三',
-			'四',
-			'五\n六'
-		]);
+	it('preserves a complete thought even when it contains several sentences', () => {
+		expect(splitCompanionBubbles('好呀！我来啦。😊')).toEqual(['好呀！我来啦。😊']);
+		expect(splitCompanionBubbles('好呀')).toEqual(['好呀']);
+	});
+	it.each([1, 2, 4, 8])('keeps all %i semantic parts without padding or merging', (count) => {
+		const parts = Array.from({ length: count }, (_, index) => `想法${index}。补充说明。`);
+		expect(splitCompanionBubbles(parts.join('\n'))).toEqual(parts);
 	});
 	it('preserves code, tables and numbered instructions', () => {
 		for (const content of [
